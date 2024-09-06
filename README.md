@@ -5,5 +5,3 @@
 
 이진 분류 실행
 로스와 정확도 평가
-
-![image](https://github.com/user-attachments/assets/517747db-d5f6-408c-8e27-001524285117)
