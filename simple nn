@@ -1,0 +1,119 @@
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, TensorDataset
+
+# 데이터 생성
+data0 = np.random.normal(loc=[2, 0], scale=0.5, size=(1000, 2))
+data1 = np.random.normal(loc=[0, 2], scale=0.5, size=(1000, 2))
+
+# 레이블 생성
+labels0 = np.zeros((1000, 1))  # 첫 번째 자료의 label 0
+labels1 = np.ones((1000, 1))  # 두 번째 자료 label 1
+
+# 데이터 결합
+data = np.vstack((data0, data1))
+labels = np.vstack((labels0, labels1))
+
+# 데이터 프레임 변환
+df = pd.DataFrame(data, columns=['x', 'y'])
+df['label'] = labels
+
+# 엑셀 파일로 저장
+excel_path = 'binary_classification_data.xlsx'
+df.to_excel(excel_path, index=False)
+
+# 학습 데이터, 테스트 데이터 분할 , 10%를 테스트 데이터 나머지 90%를 학습 데이터
+X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.1, stratify=labels, random_state=42)
+
+# NumPy 데이터 -> PyTorch 텐서로 변환
+X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
+X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
+y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
+
+# TensorDataset, DataLoader 통해서 데이터 준비
+train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+
+class SimpleNN(nn.Module):
+    def __init__(self):
+        super(SimpleNN, self).__init__()
+        self.layer1 = nn.Linear(2, 4)  # 입력 2개, 은닉층 4개
+        self.layer2 = nn.Linear(4, 1)  # 은닉층 4개, 출력 1개
+        self.relu = nn.ReLU()  # 활성화 함수
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.relu(x)   # 은닉층 ReLU 활성화 함수 적용
+        x = self.layer2(x)
+        x = self.sigmoid(x)  # 출력층 sigmoid 함수 적용
+        return x
+
+
+# 모델 초기화
+model = SimpleNN()
+
+# 손실 함수와 optimizer 설정
+criterion = nn.BCELoss()  # 이진 교차 Entropy 손실 함수
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# 모델 학습
+num_epochs = 50
+for epoch in range(num_epochs):
+    model.train()  # 학습 모드
+    epoch_loss = 0.0
+    correct = 0
+    total = 0
+
+    for Input, Label in train_loader:
+        # 순전파
+        outputs = model(Input)
+        loss = criterion(outputs, Label)
+
+        # 역전파 및 최적화
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # 배치 손실 누적
+        epoch_loss += loss.item()
+
+        # 배치 정확도 계산
+        predicted = (outputs > 0.5).float()
+        total += Label.size(0)
+        correct += (predicted == Label).sum().item()
+
+    # 각 에포크 평균 손실 및 정확도 계산
+    epoch_loss /= len(train_loader)
+    epoch_accuracy = correct / total
+
+    print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}')
+
+
+# 모델 평가
+model.eval()   # 평가 모드
+with torch.no_grad():
+    correct = 0   # 모델이 맞게 예측한 샘플
+    total = 0   # 평가한 전체 샘플
+    test_loss = 0.0   # 테스트 손실 초기화 ( 평가 동안 누적된 손실 값)
+    for Input, Label in test_loader:
+        outputs = model(Input)
+        loss = criterion(outputs, Label)  # 손실 계산
+        predicted = (outputs >= 0.5).float()   # 모델의 출력을 0.5와 비교해 이진 분류
+        total += Label.size(0)
+        correct += (predicted == Label).sum().item()
+        test_loss += loss.item()  # 배치 손실 누적
+
+    accuracy = correct / total   # 전체 데이터 수 중에 맞게 예측한 비율
+    test_loss /= total  # 평균 테스트 손실 계산
+
+print(f'Final Loss: {test_loss:.4f}, Final Accuracy: {accuracy:.4f}')
