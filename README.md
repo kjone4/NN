@@ -9,3 +9,7 @@ simple NN
 오차 행렬, 정밀도, 재현율  
 F1 스코어  
 Roc 곡선과 AUC
+
+![image](https://github.com/user-attachments/assets/5297d374-9292-4756-bce0-5f7ed8b71912)
+
+  
